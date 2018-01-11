@@ -62,7 +62,7 @@ class FileUploadValidator {
 	public function addAllowedFileExtension( $file_ext ) {
 		$file_extensions = func_get_args();
 		foreach ( $file_extensions as $file_ext ) {
-			$this->_allowed_file_extensions[] = $file_ext;
+			$this->_allowed_file_extensions[] = strtolower( $file_ext );
 		}
 	}
 
@@ -74,7 +74,7 @@ class FileUploadValidator {
 	public function addAllowedFileType( $file_type ) {
 		$file_types = func_get_args();
 		foreach ( $file_types as $file_type ) {
-			$this->_allowed_file_types[] = $file_type;
+			$this->_allowed_file_types[] = strtolower( $file_type );
 		}
 	}
 
@@ -86,7 +86,7 @@ class FileUploadValidator {
 	public function addAllowedMimeType( $mime_type ) {
 		$mime_types = func_get_args();
 		foreach ( $mime_types as $mime_type ) {
-			$this->_allowed_mime_types[] = $mime_type;
+			$this->_allowed_mime_types[] = strtolower( $mime_type );
 		}
 	}
 
@@ -131,7 +131,7 @@ class FileUploadValidator {
 
 			// Validate mime type
 			if ( ! empty( $this->_allowed_mime_types ) ) {
-				if ( ! in_array( mime_content_type( $this->path ), $this->_allowed_mime_types ) ) {
+				if ( ! in_array( strtolower( mime_content_type( $this->path ) ), $this->_allowed_mime_types, true ) ) {
 					throw new \RuntimeException( 'Invalid file type.' );
 				}
 			}
@@ -139,15 +139,15 @@ class FileUploadValidator {
 			// Validate file type
 			if ( ! empty( $this->_allowed_file_types ) ) {
 				$mime_type_parts = explode( '/', mime_content_type( $this->path ) );
-				$file_type       = array_shift( $mime_type_parts );
-				if ( ! in_array( $file_type, $this->_allowed_file_types ) ) {
+				$file_type = strtolower( array_shift( $mime_type_parts ) );
+				if ( ! in_array( $file_type, $this->_allowed_file_types, true ) ) {
 					throw new \RuntimeException( 'Invalid file type.' );
 				}
 			}
 
 			// Validate file extension
 			if ( ! empty( $this->_allowed_file_extensions ) ) {
-				if ( ! in_array( pathinfo( $this->name, PATHINFO_EXTENSION ), $this->_allowed_file_extensions ) ) {
+				if ( ! in_array( strtolower( pathinfo( $this->name, PATHINFO_EXTENSION ) ), $this->_allowed_file_extensions, true ) ) {
 					throw new \RuntimeException( 'Invalid file extension.' );
 				}
 			}
@@ -226,7 +226,7 @@ class FileUploadValidator {
 			}
 
 			if ( is_array( $key ) ) {
-				$value    = $_FILES;
+				$value = $_FILES;
 				$segments = $key;
 				foreach ( $segments as $segment ) {
 					if ( isset( $value[ $segment ] ) ) {
@@ -251,7 +251,7 @@ class FileUploadValidator {
 	 * @return mixed
 	 */
 	public function __get( $property ) {
-		$value  = null;
+		$value = null;
 		$method = "_get_{$property}";
 		if ( method_exists( $this, $method ) && is_callable( [ $this, $method ] ) ) {
 			$value = $this->$method();
