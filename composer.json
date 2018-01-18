@@ -1,7 +1,7 @@
 {
     "name": "wpscholar/wp-file-upload-validator",
     "description": "A file upload validator for WordPress.",
-    "license": "GPL-2.0+",
+    "license": "GPL-2.0-or-later",
     "authors": [
         {
             "name": "Micah Wood",
