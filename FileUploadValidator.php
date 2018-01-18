@@ -7,11 +7,11 @@ namespace wpscholar\WordPress;
  *
  * @package wpscholar\WordPress
  *
- * @property int $error
- * @property string $name
- * @property string $path
- * @property int $size
- * @property string $type
+ * @property int|array $error
+ * @property string|array $name
+ * @property string|array $path
+ * @property int|array $size
+ * @property string|array $type
  */
 class FileUploadValidator {
 
@@ -57,65 +57,84 @@ class FileUploadValidator {
 	/**
 	 * Add an allowed file extension
 	 *
-	 * @param string $file_ext
+	 * @param string ...$file_ext
 	 */
 	public function addAllowedFileExtension( $file_ext ) {
-		$file_extensions = func_get_args();
-		foreach ( $file_extensions as $file_ext ) {
-			$this->_allowed_file_extensions[] = strtolower( $file_ext );
+		foreach ( \func_get_args() as $ext ) {
+			$this->_allowed_file_extensions[] = strtolower( $ext );
 		}
 	}
 
 	/**
 	 * Add an allowed file type
 	 *
-	 * @param string $file_type e.g. audio, video, image, text
+	 * @param string ...$file_type e.g. audio, video, image, text
 	 */
 	public function addAllowedFileType( $file_type ) {
-		$file_types = func_get_args();
-		foreach ( $file_types as $file_type ) {
-			$this->_allowed_file_types[] = strtolower( $file_type );
+		foreach ( \func_get_args() as $type ) {
+			$this->_allowed_file_types[] = strtolower( $type );
 		}
 	}
 
 	/**
 	 * Add an allowed mime type
 	 *
-	 * @param string $mime_type
+	 * @param string ...$mime_type
 	 */
 	public function addAllowedMimeType( $mime_type ) {
-		$mime_types = func_get_args();
-		foreach ( $mime_types as $mime_type ) {
-			$this->_allowed_mime_types[] = strtolower( $mime_type );
+		foreach ( \func_get_args() as $type ) {
+			$this->_allowed_mime_types[] = strtolower( $type );
 		}
+	}
+
+	/**
+	 * Check if a file has been uploaded.
+	 *
+	 * @return bool
+	 */
+	public function hasFileUpload() {
+		$errors = (array) $this->_get( [ $this->_handle, 'error' ], [] );
+		$counts = array_count_values( $errors );
+
+		return ! empty( $errors ) && ! array_key_exists( UPLOAD_ERR_NO_FILE, $counts );
+	}
+
+	/**
+	 * Check if upload is a multiple file upload.
+	 *
+	 * @return bool
+	 */
+	public function isMultipleFileUpload() {
+		return \is_array( $this->_get_name() );
 	}
 
 	/**
 	 * Check if file upload is valid
 	 *
-	 * @return \WP_Error|true Return true on success or a WP_Error instance on falure.
+	 * @return \WP_Error|true Return true on success or a WP_Error instance on failure.
 	 */
 	public function isValid() {
 
 		try {
 
 			// Check if files array is set
-			if ( ! isset( $_FILES ) ) {
+			if ( ! $this->hasFileUpload() ) {
 				throw new \RuntimeException( 'Please upload a file.' );
 			}
 
 			// Check for file for PHP errors
-			if ( isset( $_FILES, $_FILES[ $this->_handle ], $_FILES[ $this->_handle ]['error'] ) ) {
-				switch ( $_FILES[ $this->_handle ]['error'] ) {
+			$errors = (array) $this->_get( [ $this->_handle, 'error' ], [] );
+			foreach ( $errors as $error_code ) {
+				switch ( $error_code ) {
 					case UPLOAD_ERR_OK:
 						// If there is no error, just break out
 						break;
 					case UPLOAD_ERR_INI_SIZE:
-						throw new \RuntimeException( 'The uploaded file exceeds the maximum allowed file size.' );
+						throw new \RuntimeException( 'Uploaded file exceeds the maximum allowed file size.' );
 					case UPLOAD_ERR_FORM_SIZE:
-						throw new \RuntimeException( 'The uploaded file exceeds the maximum allowed file size.' );
+						throw new \RuntimeException( 'Uploaded file exceeds the maximum allowed file size.' );
 					case UPLOAD_ERR_PARTIAL:
-						throw new \RuntimeException( 'The uploaded file was only partially uploaded. Please try again.' );
+						throw new \RuntimeException( 'Uploaded file was only partially uploaded. Please try again.' );
 					case UPLOAD_ERR_NO_FILE:
 						throw new \RuntimeException( 'No file was uploaded. Please upload a file.' );
 					case UPLOAD_ERR_NO_TMP_DIR:
@@ -129,26 +148,35 @@ class FileUploadValidator {
 				}
 			}
 
+			$paths = (array) $this->_get( [ $this->_handle, 'path' ], [] );
+
 			// Validate mime type
 			if ( ! empty( $this->_allowed_mime_types ) ) {
-				if ( ! in_array( strtolower( mime_content_type( $this->path ) ), $this->_allowed_mime_types, true ) ) {
-					throw new \RuntimeException( 'Invalid file type.' );
+				foreach ( $paths as $path ) {
+					if ( ! \in_array( strtolower( mime_content_type( $path ) ), $this->_allowed_mime_types, true ) ) {
+						throw new \RuntimeException( 'Invalid file type.' );
+					}
 				}
 			}
 
 			// Validate file type
 			if ( ! empty( $this->_allowed_file_types ) ) {
-				$mime_type_parts = explode( '/', mime_content_type( $this->path ) );
-				$file_type = strtolower( array_shift( $mime_type_parts ) );
-				if ( ! in_array( $file_type, $this->_allowed_file_types, true ) ) {
-					throw new \RuntimeException( 'Invalid file type.' );
+				foreach ( $paths as $path ) {
+					$mime_type_parts = explode( '/', mime_content_type( $path ) );
+					$file_type = strtolower( array_shift( $mime_type_parts ) );
+					if ( ! \in_array( $file_type, $this->_allowed_file_types, true ) ) {
+						throw new \RuntimeException( 'Invalid file type.' );
+					}
 				}
 			}
 
 			// Validate file extension
 			if ( ! empty( $this->_allowed_file_extensions ) ) {
-				if ( ! in_array( strtolower( pathinfo( $this->name, PATHINFO_EXTENSION ) ), $this->_allowed_file_extensions, true ) ) {
-					throw new \RuntimeException( 'Invalid file extension.' );
+				$names = (array) $this->_get( [ $this->_handle, 'name' ], [] );
+				foreach ( $names as $name ) {
+					if ( ! \in_array( strtolower( pathinfo( $name, PATHINFO_EXTENSION ) ), $this->_allowed_file_extensions, true ) ) {
+						throw new \RuntimeException( 'Invalid file extension.' );
+					}
 				}
 			}
 
@@ -161,9 +189,33 @@ class FileUploadValidator {
 	}
 
 	/**
+	 * Get an array containing all file data.
+	 *
+	 * @return array
+	 */
+	public function getFileData() {
+
+		$fileData = [];
+
+		$files = (array) $this->_get( $this->_handle, [] );
+
+		if ( $this->isMultipleFileUpload() ) {
+			foreach ( $files as $key => $data ) {
+				foreach ( $data as $index => $value ) {
+					$fileData[ $index ][ $key ] = $value;
+				}
+			}
+		} else {
+			$fileData = $files;
+		}
+
+		return $fileData;
+	}
+
+	/**
 	 * Get error
 	 *
-	 * @return string
+	 * @return int|array
 	 */
 	protected function _get_error() {
 		return $this->_get( [ $this->_handle, 'error' ], 0 );
@@ -172,7 +224,7 @@ class FileUploadValidator {
 	/**
 	 * Get file name
 	 *
-	 * @return string
+	 * @return string|array
 	 */
 	protected function _get_name() {
 		return $this->_get( [ $this->_handle, 'name' ], '' );
@@ -181,7 +233,7 @@ class FileUploadValidator {
 	/**
 	 * Get file path
 	 *
-	 * @return string
+	 * @return string|array
 	 */
 	protected function _get_path() {
 		return $this->_get( [ $this->_handle, 'tmp_name' ], '' );
@@ -190,7 +242,7 @@ class FileUploadValidator {
 	/**
 	 * Get file size
 	 *
-	 * @return string
+	 * @return string|array
 	 */
 	protected function _get_size() {
 		return absint( $this->_get( [ $this->_handle, 'size' ], 0 ) );
@@ -199,7 +251,7 @@ class FileUploadValidator {
 	/**
 	 * Get file type (mime type)
 	 *
-	 * @return string
+	 * @return string|array
 	 */
 	protected function _get_type() {
 		return $this->_get( [ $this->_handle, 'type' ], '' );
@@ -217,15 +269,15 @@ class FileUploadValidator {
 
 		$value = $default;
 
-		if ( isset( $_FILES ) ) {
+		if ( ! empty( $_FILES ) ) {
 
-			if ( is_string( $key ) ) {
+			if ( \is_string( $key ) ) {
 				if ( isset( $_FILES[ $key ] ) ) {
 					$value = $_FILES[ $key ];
 				}
 			}
 
-			if ( is_array( $key ) ) {
+			if ( \is_array( $key ) ) {
 				$value = $_FILES;
 				$segments = $key;
 				foreach ( $segments as $segment ) {
@@ -253,7 +305,7 @@ class FileUploadValidator {
 	public function __get( $property ) {
 		$value = null;
 		$method = "_get_{$property}";
-		if ( method_exists( $this, $method ) && is_callable( [ $this, $method ] ) ) {
+		if ( method_exists( $this, $method ) && \is_callable( [ $this, $method ] ) ) {
 			$value = $this->$method();
 		}
 
