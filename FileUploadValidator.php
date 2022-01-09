@@ -148,7 +148,7 @@ class FileUploadValidator {
 				}
 			}
 
-			$paths = (array) $this->_get( [ $this->_handle, 'path' ], [] );
+			$paths = (array) $this->_get( [ $this->_handle, 'tmp_name' ], [] );
 
 			// Validate mime type
 			if ( ! empty( $this->_allowed_mime_types ) ) {
@@ -163,7 +163,7 @@ class FileUploadValidator {
 			if ( ! empty( $this->_allowed_file_types ) ) {
 				foreach ( $paths as $path ) {
 					$mime_type_parts = explode( '/', mime_content_type( $path ) );
-					$file_type = strtolower( array_shift( $mime_type_parts ) );
+					$file_type       = strtolower( array_shift( $mime_type_parts ) );
 					if ( ! \in_array( $file_type, $this->_allowed_file_types, true ) ) {
 						throw new \RuntimeException( 'Invalid file type.' );
 					}
@@ -278,7 +278,7 @@ class FileUploadValidator {
 			}
 
 			if ( \is_array( $key ) ) {
-				$value = $_FILES;
+				$value    = $_FILES;
 				$segments = $key;
 				foreach ( $segments as $segment ) {
 					if ( isset( $value[ $segment ] ) ) {
@@ -303,7 +303,7 @@ class FileUploadValidator {
 	 * @return mixed
 	 */
 	public function __get( $property ) {
-		$value = null;
+		$value  = null;
 		$method = "_get_{$property}";
 		if ( method_exists( $this, $method ) && \is_callable( [ $this, $method ] ) ) {
 			$value = $this->$method();
